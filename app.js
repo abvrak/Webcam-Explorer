@@ -1,125 +1,91 @@
-// ===== Configuration =====
+"use strict";
+
+// Ustawienia API
 const API_KEY = 'p4itaEUZ9H6xmd2l4ld4mrBTpHdD9wy0';
 const API_BASE = 'https://api.windy.com/webcams/api/v3';
 
-// ===== Map Setup =====
+// Start mapy
 const map = L.map('map', {
-    center: [51.1, 17.0], // Wrocław
+    center: [51.1, 17.0],
     zoom: 6,
     minZoom: 3,
-    maxZoom: 18,
-    zoomControl: true
+    maxZoom: 18
 });
 
+// Podklad mapy
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Webcams by <a href="https://www.windy.com">Windy.com</a>',
-    maxZoom: 19
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Webcams by <a href="https://www.windy.com">Windy.com</a>'
 }).addTo(map);
 
-// Marker cluster group
-const markerCluster = L.markerClusterGroup({
+// Grupowanie markerow
+const markers = L.markerClusterGroup({
     maxClusterRadius: 50,
+    disableClusteringAtZoom: 15,
     spiderfyOnMaxZoom: true,
-    showCoverageOnHover: false,
-    disableClusteringAtZoom: 15
+    showCoverageOnHover: false
 });
-map.addLayer(markerCluster);
+map.addLayer(markers);
 
-// ===== State =====
+// Skrot do pobierania elementow
+const $ = (id) => document.getElementById(id);
+const loadingEl = $('loading');
+const webcamCountEl = $('webcamCount');
+const webcamInfoEl = $('webcamInfo');
+const closeInfoBtn = $('closeInfo');
+const searchInput = $('searchInput');
+const searchBtn = $('searchBtn');
+const categorySelect = $('categorySelect');
+
+// Prosty stan aplikacji
 let webcams = [];
 let activeMarker = null;
-let categories = [];
 let fetchTimeout = null;
 
-// ===== DOM Elements =====
-const loadingEl = document.getElementById('loading');
-const webcamCountEl = document.getElementById('webcamCount');
-const webcamInfoEl = document.getElementById('webcamInfo');
-const closeInfoBtn = document.getElementById('closeInfo');
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const categorySelect = document.getElementById('categorySelect');
+// Pobieranie danych z API
+const api = async (path, params = {}) => {
+    const url = new URL(API_BASE + path);
+    Object.entries(params).forEach(([k, v]) => v && url.searchParams.set(k, v));
+    const res = await fetch(url, { headers: { 'x-windy-api-key': API_KEY } });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    return res.json();
+};
 
-// ===== API Helpers =====
-async function apiRequest(endpoint, params = {}) {
-    const url = new URL(`${API_BASE}${endpoint}`);
-    Object.entries(params).forEach(([key, val]) => {
-        if (val !== undefined && val !== null && val !== '') {
-            url.searchParams.append(key, val);
-        }
+// Male helpery
+const showLoading = (visible) => loadingEl.classList.toggle('hidden', !visible);
+const formatLocation = (loc) => [loc?.city, loc?.region, loc?.country].filter(Boolean).join(', ') || 'Nieznana lokalizacja';
+const formatDate = (dateStr) => {
+    if (!dateStr) return 'Brak danych';
+    const d = new Date(dateStr);
+    return Number.isNaN(d.getTime()) ? dateStr : d.toLocaleString('pl-PL', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
     });
+};
 
-    const response = await fetch(url.toString(), {
-        headers: { 'x-windy-api-key': API_KEY }
-    });
-
-    if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
-}
-
-// ===== Load Categories =====
-async function loadCategories() {
+// Lista kategorii do selecta
+const loadCategories = async () => {
     try {
-        categories = await apiRequest('/categories', { lang: 'pl' });
-        categories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id;
-            option.textContent = cat.name;
-            categorySelect.appendChild(option);
+        const list = await api('/categories', { lang: 'pl' });
+        list.forEach((cat) => {
+            const opt = document.createElement('option');
+            opt.value = cat.id;
+            opt.textContent = cat.name;
+            categorySelect.appendChild(opt);
         });
     } catch (err) {
         console.warn('Nie udało się załadować kategorii:', err);
     }
-}
+};
 
-// ===== Load Webcams =====
-async function loadWebcams() {
-    const bounds = map.getBounds();
-    const north = bounds.getNorth();
-    const south = bounds.getSouth();
-    const east = bounds.getEast();
-    const west = bounds.getWest();
-
-    showLoading(true);
-
-    try {
-        const params = {
-            include: 'categories,images,location,player,urls',
-            lang: 'pl',
-            limit: 50,
-            bbox: `${north},${east},${south},${west}`
-        };
-
-        const selectedCategory = categorySelect.value;
-        if (selectedCategory) {
-            params.categories = selectedCategory;
-        }
-
-        const data = await apiRequest('/webcams', params);
-        webcams = data.webcams || [];
-        webcamCountEl.textContent = data.total || webcams.length;
-
-        renderMarkers();
-    } catch (err) {
-        console.error('Błąd ładowania kamer:', err);
-        webcamCountEl.textContent = '0';
-    } finally {
-        showLoading(false);
-    }
-}
-
-// ===== Render Markers =====
-function renderMarkers() {
-    markerCluster.clearLayers();
-
-    webcams.forEach(cam => {
-        if (!cam.location) return;
-
-        const { latitude, longitude } = cam.location;
-        if (!latitude || !longitude) return;
+// Rysowanie markerow na mapie
+const renderMarkers = () => {
+    markers.clearLayers();
+    webcams.forEach((cam) => {
+        const loc = cam.location;
+        if (!loc?.latitude || !loc?.longitude) return;
 
         const icon = L.divIcon({
             className: 'webcam-marker',
@@ -128,104 +94,93 @@ function renderMarkers() {
             iconAnchor: [16, 16]
         });
 
-        const marker = L.marker([latitude, longitude], { icon });
-
-        // Popup
-        const thumbUrl = cam.images?.current?.preview || cam.images?.current?.icon || '';
-        const popupContent = `
-            <div class="popup-title">${escapeHtml(cam.title)}</div>
-            <div class="popup-location">${escapeHtml(formatLocation(cam.location))}</div>
-            ${thumbUrl ? `<img class="popup-thumb" src="${thumbUrl}" alt="${escapeHtml(cam.title)}" loading="lazy" />` : ''}
-        `;
-        marker.bindPopup(popupContent, { maxWidth: 260 });
+        const marker = L.marker([loc.latitude, loc.longitude], { icon });
+        const thumb = cam.images?.current?.preview || cam.images?.current?.icon || '';
+        marker.bindPopup(
+            `<div class="popup-title">${cam.title || ''}</div>` +
+            `<div class="popup-location">${formatLocation(loc)}</div>` +
+            (thumb ? `<img class="popup-thumb" src="${thumb}" alt="${cam.title || ''}" loading="lazy" />` : ''),
+            { maxWidth: 260 }
+        );
 
         marker.on('click', () => {
-            if (activeMarker) {
-                activeMarker.getElement()?.classList.remove('webcam-marker-active');
-            }
+            activeMarker?.getElement()?.classList.remove('webcam-marker-active');
             activeMarker = marker;
             marker.getElement()?.classList.add('webcam-marker-active');
             showWebcamInfo(cam);
         });
 
-        markerCluster.addLayer(marker);
+        markers.addLayer(marker);
     });
-}
+};
 
-// ===== Show Webcam Info in Sidebar =====
-function showWebcamInfo(cam) {
+// Wypelnienie panelu z danymi
+const showWebcamInfo = (cam) => {
     webcamInfoEl.classList.remove('hidden');
 
-    document.getElementById('infoTitle').textContent = cam.title || 'Brak nazwy';
+    $('infoTitle').textContent = cam.title || 'Brak nazwy';
+    $('infoLocation').textContent = formatLocation(cam.location);
+    $('infoCountry').textContent = [cam.location?.country, cam.location?.continent].filter(Boolean).join(', ') || 'Nieznany';
+    $('infoCategories').textContent = (cam.categories || []).map((c) => c.name).join(', ') || 'Brak';
+    $('infoViews').textContent = cam.viewCount != null ? cam.viewCount.toLocaleString('pl-PL') : 'Brak danych';
+    $('infoUpdated').textContent = formatDate(cam.lastUpdatedOn);
+    $('infoStatus').textContent = cam.status === 'active' ? 'Aktywna' : 'Nieaktywna';
 
-    // Image
-    const imageContainer = document.getElementById('infoImage');
     const imgUrl = cam.images?.current?.preview || cam.images?.current?.thumbnail || cam.images?.current?.icon || '';
-    if (imgUrl) {
-        imageContainer.innerHTML = `<img src="${imgUrl}" alt="${escapeHtml(cam.title)}" />`;
-    } else {
-        imageContainer.innerHTML = '<span style="color:rgba(255,255,255,0.3)">Brak podglądu</span>';
-    }
+    $('infoImage').innerHTML = imgUrl
+        ? `<img src="${imgUrl}" alt="${cam.title || ''}" />`
+        : '<span style="color:rgba(255,255,255,0.3)">Brak podglądu</span>';
 
-    // Location
-    document.getElementById('infoLocation').textContent = formatLocation(cam.location);
-    document.getElementById('infoCountry').textContent =
-        [cam.location?.country, cam.location?.continent].filter(Boolean).join(', ') || 'Nieznany';
+    const player = cam.player?.day || cam.player?.live || '';
+    $('infoPlayer').innerHTML = player ? `<iframe src="${player}" allowfullscreen></iframe>` : '';
 
-    // Categories
-    const cats = (cam.categories || []).map(c => c.name).join(', ');
-    document.getElementById('infoCategories').textContent = cats || 'Brak';
-
-    // Views
-    document.getElementById('infoViews').textContent =
-        cam.viewCount != null ? cam.viewCount.toLocaleString('pl-PL') : 'Brak danych';
-
-    // Last update
-    document.getElementById('infoUpdated').textContent =
-        cam.lastUpdatedOn ? formatDate(cam.lastUpdatedOn) : 'Brak danych';
-
-    // Status
-    const statusEl = document.getElementById('infoStatus');
-    statusEl.textContent = cam.status === 'active' ? '✅ Aktywna' : '⛔ Nieaktywna';
-
-    // Player
-    const playerContainer = document.getElementById('infoPlayer');
-    if (cam.player?.day) {
-        playerContainer.innerHTML = `<iframe src="${cam.player.day}" allowfullscreen></iframe>`;
-    } else if (cam.player?.live) {
-        playerContainer.innerHTML = `<iframe src="${cam.player.live}" allowfullscreen></iframe>`;
-    } else {
-        playerContainer.innerHTML = '';
-    }
-
-    // Links
-    const detailLink = document.getElementById('infoDetailLink');
+    const link = $('infoDetailLink');
     if (cam.urls?.detail) {
-        detailLink.href = cam.urls.detail;
-        detailLink.style.display = 'inline-block';
+        link.href = cam.urls.detail;
+        link.style.display = 'inline-block';
     } else {
-        detailLink.style.display = 'none';
+        link.style.display = 'none';
     }
 
-    // Scroll info into view
     webcamInfoEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+};
 
-// ===== Search (Geocoding via Nominatim) =====
-async function searchLocation(query) {
-    if (!query.trim()) return;
-
+// Pobranie kamer z aktualnego widoku mapy
+const loadWebcams = async () => {
+    const b = map.getBounds();
     showLoading(true);
-
     try {
-        const response = await fetch(
+        const params = {
+            include: 'categories,images,location,player,urls',
+            lang: 'pl',
+            limit: 50,
+            bbox: `${b.getNorth()},${b.getEast()},${b.getSouth()},${b.getWest()}`
+        };
+        if (categorySelect.value) params.categories = categorySelect.value;
+
+        const data = await api('/webcams', params);
+        webcams = data.webcams || [];
+        webcamCountEl.textContent = data.total || webcams.length;
+        renderMarkers();
+    } catch (err) {
+        console.error('Błąd ładowania kamer:', err);
+        webcamCountEl.textContent = '0';
+    } finally {
+        showLoading(false);
+    }
+};
+
+// Szukanie miejsca po nazwie
+const searchLocation = async (query) => {
+    if (!query.trim()) return;
+    showLoading(true);
+    try {
+        const res = await fetch(
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
         );
-        const results = await response.json();
-
-        if (results.length > 0) {
-            const { lat, lon } = results[0];
-            map.setView([parseFloat(lat), parseFloat(lon)], 10);
+        const results = await res.json();
+        if (results[0]) {
+            map.setView([+results[0].lat, +results[0].lon], 10);
         } else {
             alert('Nie znaleziono miejsca. Spróbuj innej nazwy.');
         }
@@ -235,69 +190,30 @@ async function searchLocation(query) {
     } finally {
         showLoading(false);
     }
-}
+};
 
-// ===== Utility Functions =====
-function showLoading(visible) {
-    loadingEl.classList.toggle('hidden', !visible);
-}
-
-function formatLocation(loc) {
-    if (!loc) return 'Nieznana lokalizacja';
-    return [loc.city, loc.region, loc.country].filter(Boolean).join(', ');
-}
-
-function formatDate(dateStr) {
-    try {
-        return new Date(dateStr).toLocaleString('pl-PL', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    } catch {
-        return dateStr;
-    }
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// ===== Debounced Webcam Loading =====
-function debouncedLoadWebcams() {
+// Opoznienie zeby nie spamowac API
+const debouncedLoadWebcams = () => {
     clearTimeout(fetchTimeout);
     fetchTimeout = setTimeout(loadWebcams, 400);
-}
+};
 
-// ===== Event Listeners =====
-
-// Map events
+// Reakcja na ruch mapy
 map.on('moveend', debouncedLoadWebcams);
 map.on('zoomend', debouncedLoadWebcams);
 
-// Close info panel
+// Zamkniecie panelu
 closeInfoBtn.addEventListener('click', () => {
     webcamInfoEl.classList.add('hidden');
-    if (activeMarker) {
-        activeMarker.getElement()?.classList.remove('webcam-marker-active');
-        activeMarker = null;
-    }
+    activeMarker?.getElement()?.classList.remove('webcam-marker-active');
+    activeMarker = null;
 });
 
-// Search
+// Wyszukiwarka
 searchBtn.addEventListener('click', () => searchLocation(searchInput.value));
-searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') searchLocation(searchInput.value);
-});
-
-// Category filter
+searchInput.addEventListener('keydown', (e) => e.key === 'Enter' && searchLocation(searchInput.value));
 categorySelect.addEventListener('change', loadWebcams);
 
-// ===== Init =====
+// Start
 loadCategories();
 loadWebcams();
