@@ -1,1 +1,2 @@
 # Webcam-Explorer
+A geospatial web application for locating and previewing public webcams. Developed with vanilla JavaScript and Leaflet.js, utilizing the Windy API for webcam data and Nominatim API for geocoding.
