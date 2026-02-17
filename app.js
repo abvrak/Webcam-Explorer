@@ -1,7 +1,7 @@
 "use strict";
 
 // Ustawienia API
-const API_KEY = '';
+const API_KEY = 'YOUR_API_KEY';
 const API_BASE = 'https://api.windy.com/webcams/api/v3';
 
 // Start mapy
