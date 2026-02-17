@@ -48,7 +48,7 @@ const api = async (path, params = {}) => {
     return res.json();
 };
 
-// Helpery
+// Funkcje pomocnicze
 const showLoading = (visible) => loadingEl.classList.toggle('hidden', !visible);
 const formatLocation = (loc) => [loc?.city, loc?.region, loc?.country].filter(Boolean).join(', ') || 'Nieznana lokalizacja';
 const formatDate = (dateStr) => {
