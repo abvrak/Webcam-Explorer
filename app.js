@@ -1,10 +1,10 @@
 "use strict";
 
-// Ustawienia API
+// API settings
 const API_KEY = 'YOUR_API_KEY';
 const API_BASE = 'https://api.windy.com/webcams/api/v3';
 
-// Start mapy
+// Map initialization
 const map = L.map('map', {
     center: [51.1, 17.0],
     zoom: 6,
@@ -12,12 +12,12 @@ const map = L.map('map', {
     maxZoom: 18
 });
 
-// Podklad mapy
+// Map tile layer
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Webcams by <a href="https://www.windy.com">Windy.com</a>'
 }).addTo(map);
 
-// Grupowanie markerow
+// Marker clustering
 const markers = L.markerClusterGroup({
     maxClusterRadius: 50,
     disableClusteringAtZoom: 15,
@@ -34,12 +34,12 @@ const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const categorySelect = document.getElementById('categorySelect');
 
-// Stan aplikacji
+// Application state
 let webcams = [];
 let activeMarker = null;
 let fetchTimeout = null;
 
-// Pobieranie danych z API
+// Fetching data from the API
 const api = async (path, params = {}) => {
     const url = new URL(API_BASE + path);
     Object.entries(params).forEach(([k, v]) => v && url.searchParams.set(k, v));
@@ -48,7 +48,7 @@ const api = async (path, params = {}) => {
     return res.json();
 };
 
-// Funkcje pomocnicze
+// Helper functions
 const showLoading = (visible) => loadingEl.classList.toggle('hidden', !visible);
 const formatLocation = (loc) => [loc?.city, loc?.region, loc?.country].filter(Boolean).join(', ') || 'Nieznana lokalizacja';
 const formatDate = (dateStr) => {
@@ -63,7 +63,7 @@ const formatDate = (dateStr) => {
     });
 };
 
-// Lista kategorii do selecta
+// Category list for the select input
 const loadCategories = async () => {
     try {
         const list = await api('/categories', { lang: 'pl' });
@@ -78,7 +78,7 @@ const loadCategories = async () => {
     }
 };
 
-// Rysowanie markerow na mapie
+// Rendering markers on the map
 const renderMarkers = () => {
     markers.clearLayers();
     webcams.forEach((cam) => {
@@ -112,7 +112,7 @@ const renderMarkers = () => {
     });
 };
 
-// Wypelnienie panelu z danymi
+// Filling the details panel
 const showWebcamInfo = (cam) => {
     webcamInfoEl.classList.remove('hidden');
 
@@ -143,7 +143,7 @@ const showWebcamInfo = (cam) => {
     webcamInfoEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-// Pobranie kamer z aktualnego widoku mapy
+// Loading webcams from the current map view
 const loadWebcams = async () => {
     const b = map.getBounds();
     showLoading(true);
@@ -168,7 +168,7 @@ const loadWebcams = async () => {
     }
 };
 
-// Szukanie miejsca po nazwie
+// Searching for a place by name
 const searchLocation = async (query) => {
     if (!query.trim()) return;
     showLoading(true);
@@ -190,24 +190,24 @@ const searchLocation = async (query) => {
     }
 };
 
-// Opoznienie zeby nie spamowac API
+// Delay to avoid spamming the API
 const debouncedLoadWebcams = () => {
     clearTimeout(fetchTimeout);
     fetchTimeout = setTimeout(loadWebcams, 800);
 };
 
-// Reakcja na ruch mapy
+// Reacting to map movement
 map.on('moveend', debouncedLoadWebcams);
 map.on('zoomend', debouncedLoadWebcams);
 
-// Zamkniecie panelu
+// Closing the panel
 closeInfoBtn.addEventListener('click', () => {
     webcamInfoEl.classList.add('hidden');
     activeMarker?.getElement()?.classList.remove('webcam-marker-active');
     activeMarker = null;
 });
 
-// Wyszukiwarka
+// Search
 searchBtn.addEventListener('click', () => searchLocation(searchInput.value));
 searchInput.addEventListener('keydown', (e) => e.key === 'Enter' && searchLocation(searchInput.value));
 categorySelect.addEventListener('change', loadWebcams);
