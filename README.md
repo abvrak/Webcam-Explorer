@@ -1,6 +1,6 @@
 # Webcam Explorer
 
-Webcam Explorer is a browser-based map app for discovering public webcams around the world.
+Webcam Explorer is a geospatial web application for locating and previewing public webcams.
 It uses Leaflet for map rendering, Windy Webcams API for camera data, and OpenStreetMap Nominatim for place search.
 
 ## Features
