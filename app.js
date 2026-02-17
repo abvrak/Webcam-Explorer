@@ -1,7 +1,7 @@
 "use strict";
 
 // Ustawienia API
-const API_p4itaEUZ9H6xmd2l4ld4mrBTpHdD9wy0 = 'p4itaEUZ9H6xmd2l4ld4mrBTpHdD9wy0';
+const API_KEY = 'p4itaEUZ9H6xmd2l4ld4mrBTpHdD9wy0';
 const API_BASE = 'https://api.windy.com/webcams/api/v3';
 
 // Start mapy
@@ -43,7 +43,7 @@ let fetchTimeout = null;
 const api = async (path, params = {}) => {
     const url = new URL(API_BASE + path);
     Object.entries(params).forEach(([k, v]) => v && url.searchParams.set(k, v));
-    const res = await fetch(url, { headers: { 'x-windy-api-key': API_p4itaEUZ9H6xmd2l4ld4mrBTpHdD9wy0 } });
+    const res = await fetch(url, { headers: { 'x-windy-api-key': API_KEY } });
     if (!res.ok) throw new Error(`API error ${res.status}`);
     return res.json();
 };
