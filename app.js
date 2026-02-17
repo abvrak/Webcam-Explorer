@@ -26,17 +26,15 @@ const markers = L.markerClusterGroup({
 });
 map.addLayer(markers);
 
-// Skrot do pobierania elementow
-const $ = (id) => document.getElementById(id);
-const loadingEl = $('loading');
-const webcamCountEl = $('webcamCount');
-const webcamInfoEl = $('webcamInfo');
-const closeInfoBtn = $('closeInfo');
-const searchInput = $('searchInput');
-const searchBtn = $('searchBtn');
-const categorySelect = $('categorySelect');
+const loadingEl = document.getElementById('loading');
+const webcamCountEl = document.getElementById('webcamCount');
+const webcamInfoEl = document.getElementById('webcamInfo');
+const closeInfoBtn = document.getElementById('closeInfo');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const categorySelect = document.getElementById('categorySelect');
 
-// Prosty stan aplikacji
+// Stan aplikacji
 let webcams = [];
 let activeMarker = null;
 let fetchTimeout = null;
@@ -50,7 +48,7 @@ const api = async (path, params = {}) => {
     return res.json();
 };
 
-// Male helpery
+// Helpery
 const showLoading = (visible) => loadingEl.classList.toggle('hidden', !visible);
 const formatLocation = (loc) => [loc?.city, loc?.region, loc?.country].filter(Boolean).join(', ') || 'Nieznana lokalizacja';
 const formatDate = (dateStr) => {
@@ -118,23 +116,23 @@ const renderMarkers = () => {
 const showWebcamInfo = (cam) => {
     webcamInfoEl.classList.remove('hidden');
 
-    $('infoTitle').textContent = cam.title || 'Brak nazwy';
-    $('infoLocation').textContent = formatLocation(cam.location);
-    $('infoCountry').textContent = [cam.location?.country, cam.location?.continent].filter(Boolean).join(', ') || 'Nieznany';
-    $('infoCategories').textContent = (cam.categories || []).map((c) => c.name).join(', ') || 'Brak';
-    $('infoViews').textContent = cam.viewCount != null ? cam.viewCount.toLocaleString('pl-PL') : 'Brak danych';
-    $('infoUpdated').textContent = formatDate(cam.lastUpdatedOn);
-    $('infoStatus').textContent = cam.status === 'active' ? 'Aktywna' : 'Nieaktywna';
+    document.getElementById('infoTitle').textContent = cam.title || 'Brak nazwy';
+    document.getElementById('infoLocation').textContent = formatLocation(cam.location);
+    document.getElementById('infoCountry').textContent = [cam.location?.country, cam.location?.continent].filter(Boolean).join(', ') || 'Nieznany';
+    document.getElementById('infoCategories').textContent = (cam.categories || []).map((c) => c.name).join(', ') || 'Brak';
+    document.getElementById('infoViews').textContent = cam.viewCount != null ? cam.viewCount.toLocaleString('pl-PL') : 'Brak danych';
+    document.getElementById('infoUpdated').textContent = formatDate(cam.lastUpdatedOn);
+    document.getElementById('infoStatus').textContent = cam.status === 'active' ? 'Aktywna' : 'Nieaktywna';
 
     const imgUrl = cam.images?.current?.preview || cam.images?.current?.thumbnail || cam.images?.current?.icon || '';
-    $('infoImage').innerHTML = imgUrl
+    document.getElementById('infoImage').innerHTML = imgUrl
         ? `<img src="${imgUrl}" alt="${cam.title || ''}" />`
         : '<span style="color:rgba(255,255,255,0.3)">Brak podglądu</span>';
 
     const player = cam.player?.day || cam.player?.live || '';
-    $('infoPlayer').innerHTML = player ? `<iframe src="${player}" allowfullscreen></iframe>` : '';
+    document.getElementById('infoPlayer').innerHTML = player ? `<iframe src="${player}" allowfullscreen></iframe>` : '';
 
-    const link = $('infoDetailLink');
+    const link = document.getElementById('infoDetailLink');
     if (cam.urls?.detail) {
         link.href = cam.urls.detail;
         link.style.display = 'inline-block';
@@ -195,7 +193,7 @@ const searchLocation = async (query) => {
 // Opoznienie zeby nie spamowac API
 const debouncedLoadWebcams = () => {
     clearTimeout(fetchTimeout);
-    fetchTimeout = setTimeout(loadWebcams, 400);
+    fetchTimeout = setTimeout(loadWebcams, 800);
 };
 
 // Reakcja na ruch mapy
