@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Explorer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h1>Webcam Explorer</h1>
+            <p class="subtitle">Kamery z całego świata</p>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Szukaj miasta lub miejsca..." />
+            <button id="searchBtn" title="Szukaj">Szukaj</button>
+        </div>
+
+        <div class="filters">
+            <label for="categorySelect">Kategoria:</label>
+            <select id="categorySelect">
+                <option value="">Wszystkie</option>
+            </select>
+        </div>
+
+        <div class="stats" id="stats">
+            <span id="webcamCount">0</span> kamer w widoku
+        </div>
+
+        <div id="webcamInfo" class="webcam-info hidden">
+            <button class="close-btn" id="closeInfo">&times;</button>
+            <h2 id="infoTitle"></h2>
+            <div id="infoImage" class="info-image"></div>
+            <div class="info-details">
+                <div class="info-row">
+                    <span class="info-label">Lokalizacja:</span>
+                    <span id="infoLocation"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Kraj:</span>
+                    <span id="infoCountry"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Kategorie:</span>
+                    <span id="infoCategories"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Wyświetlenia:</span>
+                    <span id="infoViews"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Aktualizacja:</span>
+                    <span id="infoUpdated"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span id="infoStatus"></span>
+                </div>
+            </div>
+            <div id="infoPlayer" class="info-player"></div>
+            <div class="info-links">
+                <a id="infoDetailLink" href="#" target="_blank" class="btn-link">Otwórz na Windy</a>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            Dane z <a href="https://www.windy.com" target="_blank">Windy.com</a> Webcams API
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <span>Ładowanie kamer...</span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
