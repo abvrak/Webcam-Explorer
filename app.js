@@ -4,6 +4,11 @@
 const API_KEY = 'YOUR_API_KEY';
 const API_BASE = 'https://api.windy.com/webcams/api/v3';
 
+// New state variables for translations
+let currentLang = 'pl';
+let translations = {};
+let currentCamData = null;
+
 // Map initialization
 const map = L.map('map', {
     center: [51.1, 17.0],
@@ -39,6 +44,35 @@ let webcams = [];
 let activeMarker = null;
 let fetchTimeout = null;
 
+// Function to load and apply translations
+const loadTranslations = async () => {
+    try {
+        const res = await fetch('translations.json');
+        translations = await res.json();
+        applyTranslations();
+    } catch (err) {
+        console.error('Error loading translations:', err);
+    }
+};
+
+// Apply translations to the DOM
+const applyTranslations = () => {
+    const langData = translations[currentLang];
+    if (!langData) return;
+
+    // Translate text content
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (langData[key]) el.textContent = langData[key];
+    });
+
+    // Translate placeholders
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (langData[key]) el.placeholder = langData[key];
+    });
+};
+
 // Fetching data from the API
 const api = async (path, params = {}) => {
     const url = new URL(API_BASE + path);
@@ -50,11 +84,21 @@ const api = async (path, params = {}) => {
 
 // Helper functions
 const showLoading = (visible) => loadingEl.classList.toggle('hidden', !visible);
-const formatLocation = (loc) => [loc?.city, loc?.region, loc?.country].filter(Boolean).join(', ') || 'Nieznana lokalizacja';
+
+const formatLocation = (loc) => {
+    const unknownText = translations[currentLang]?.unknown || 'Nieznana lokalizacja';
+    const parts = [loc?.city, loc?.region, loc?.country].filter(Boolean);
+    return parts.join(', ') || unknownText;
+};
+
 const formatDate = (dateStr) => {
-    if (!dateStr) return 'Brak danych';
+    const unknownDate = translations[currentLang]?.unknown || 'Brak danych';
+    if (!dateStr) return unknownDate;
     const d = new Date(dateStr);
-    return Number.isNaN(d.getTime()) ? dateStr : d.toLocaleString('pl-PL', {
+    if (Number.isNaN(d.getTime())) return dateStr;
+
+    const locale = currentLang === 'pl' ? 'pl-PL' : 'en-GB';
+    return d.toLocaleString(locale, {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -66,7 +110,10 @@ const formatDate = (dateStr) => {
 // Category list for the select input
 const loadCategories = async () => {
     try {
-        const list = await api('/categories', { lang: 'pl' });
+        const list = await api('/categories', { lang: currentLang });
+        
+        categorySelect.innerHTML = `<option value="" data-i18n="allCategories">${translations[currentLang]?.allCategories || 'Wszystkie'}</option>`;
+        
         list.forEach((cat) => {
             const opt = document.createElement('option');
             opt.value = cat.id;
@@ -112,30 +159,36 @@ const renderMarkers = () => {
     });
 };
 
-// Filling the details panel
+// Updated: Filling the details panel with full translation support
 const showWebcamInfo = (cam) => {
+    currentCamData = cam; 
     webcamInfoEl.classList.remove('hidden');
-
-    document.getElementById('infoTitle').textContent = cam.title || 'Brak nazwy';
+    const lang = translations[currentLang];
+    document.getElementById('infoTitle').textContent = cam.title || lang?.unknown || '---';
     document.getElementById('infoLocation').textContent = formatLocation(cam.location);
-    document.getElementById('infoCountry').textContent = [cam.location?.country, cam.location?.continent].filter(Boolean).join(', ') || 'Nieznany';
-    document.getElementById('infoCategories').textContent = (cam.categories || []).map((c) => c.name).join(', ') || 'Brak';
-    document.getElementById('infoViews').textContent = cam.viewCount != null ? cam.viewCount.toLocaleString('pl-PL') : 'Brak danych';
+    document.getElementById('infoCountry').textContent = [cam.location?.country, cam.location?.continent].filter(Boolean).join(', ') || lang?.unknown || '---';
+    document.getElementById('infoCategories').textContent = (cam.categories || []).map((c) => c.name).join(', ') || lang?.unknown || '---';
+    const locale = currentLang === 'pl' ? 'pl-PL' : 'en-US';
+    document.getElementById('infoViews').textContent = cam.viewCount != null ? cam.viewCount.toLocaleString(locale) : lang?.unknown || '---';
     document.getElementById('infoUpdated').textContent = formatDate(cam.lastUpdatedOn);
-    document.getElementById('infoStatus').textContent = cam.status === 'active' ? 'Aktywna' : 'Nieaktywna';
+    const statusKey = cam.status === 'active' ? 'statusActive' : 'statusInactive';
+    document.getElementById('infoStatus').textContent = lang[statusKey] || cam.status;
 
     const imgUrl = cam.images?.current?.preview || cam.images?.current?.thumbnail || cam.images?.current?.icon || '';
     document.getElementById('infoImage').innerHTML = imgUrl
         ? `<img src="${imgUrl}" alt="${cam.title || ''}" />`
-        : '<span style="color:rgba(255,255,255,0.3)">Brak podglądu</span>';
+        : `<span style="color:rgba(255,255,255,0.3)">${lang?.noPreview || 'Brak podglądu'}</span>`;
 
+    // Player
     const player = cam.player?.day || cam.player?.live || '';
     document.getElementById('infoPlayer').innerHTML = player ? `<iframe src="${player}" allowfullscreen></iframe>` : '';
 
+    // Link
     const link = document.getElementById('infoDetailLink');
     if (cam.urls?.detail) {
         link.href = cam.urls.detail;
         link.style.display = 'inline-block';
+        link.textContent = lang?.infoLink || 'Link';
     } else {
         link.style.display = 'none';
     }
@@ -150,7 +203,7 @@ const loadWebcams = async () => {
     try {
         const params = {
             include: 'categories,images,location,player,urls',
-            lang: 'pl',
+            lang: currentLang,
             limit: 50,
             bbox: `${b.getNorth()},${b.getEast()},${b.getSouth()},${b.getWest()}`
         };
@@ -180,7 +233,7 @@ const searchLocation = async (query) => {
         if (results[0]) {
             map.setView([+results[0].lat, +results[0].lon], 10);
         } else {
-            alert('Nie znaleziono miejsca. Spróbuj innej nazwy.');
+            alert(translations[currentLang]?.searchError || 'Nie znaleziono miejsca.');
         }
     } catch (err) {
         console.error('Błąd wyszukiwania:', err);
@@ -205,6 +258,7 @@ closeInfoBtn.addEventListener('click', () => {
     webcamInfoEl.classList.add('hidden');
     activeMarker?.getElement()?.classList.remove('webcam-marker-active');
     activeMarker = null;
+    currentCamData = null; 
 });
 
 // Search
@@ -212,6 +266,24 @@ searchBtn.addEventListener('click', () => searchLocation(searchInput.value));
 searchInput.addEventListener('keydown', (e) => e.key === 'Enter' && searchLocation(searchInput.value));
 categorySelect.addEventListener('change', loadWebcams);
 
+// Language switch event listeners
+document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        currentLang = btn.getAttribute('data-lang');
+        applyTranslations();
+        
+        if (currentCamData) {
+            showWebcamInfo(currentCamData);
+        }
+
+        await loadCategories(); 
+        loadWebcams(); 
+    });
+});
+
 // Start
-loadCategories();
-loadWebcams();
+// Initialize with translations first
+loadTranslations().then(() => {
+    loadCategories();
+    loadWebcams();
+});
